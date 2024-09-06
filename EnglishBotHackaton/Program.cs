@@ -25,7 +25,7 @@ class Program
     static async Task Main(string[] args)
     {
         Env.Load();
-        string botToken = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN");
+        var botToken = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN");
         Client = new TelegramBotClient(botToken, cancellationToken: _cts.Token);
         var me = await Client.GetMeAsync();
 
@@ -51,8 +51,8 @@ class Program
     {
         var commands = new List<BotCommand>
         {
-            new BotCommand { Command = "start", Description = "Старт" },
-            new BotCommand { Command = "test", Description = "Test Translation Question" }
+            new BotCommand { Command = "start", Description = "Start" },
+            new BotCommand { Command = "definition", Description = "Test your knowlege of words\' definitions" }
         };
 
         await Client.SetMyCommandsAsync(commands);
@@ -78,7 +78,7 @@ class Program
         {
             await Client.SendTextMessageAsync(msg.Chat.Id, "Привіт! Я - твій бот для навчання англійської");
         }
-        else if (msg.Text == "/test")
+        else if (msg.Text == "/definition")
         {
             await DefinitionQuestion(msg);
         }
