@@ -26,7 +26,7 @@ class Program
     {
         Env.Load();
         var botToken = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN");
-        Client = new TelegramBotClient(botToken, cancellationToken: _cts.Token);
+        Client = new TelegramBotClient(botToken);
         var me = await Client.GetMeAsync();
 
         Console.WriteLine($"@{me.Username} is running...");
