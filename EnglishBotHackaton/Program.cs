@@ -13,20 +13,20 @@ using DotNetEnv;
 using System.Text.Json;
 using Telegram.Bot.Types.ReplyMarkups;
 using System.Diagnostics.Eventing.Reader;
+using Microsoft.VisualBasic;
 
 class Program
 {
     private static readonly HttpClient HttpClient = new HttpClient();
     private static TelegramBotClient Client;
-    private static ConcurrentDictionary<long, string> _userFileRequests = new ConcurrentDictionary<long, string>();
     private static CancellationTokenSource _cts = new CancellationTokenSource();
-    private static string CorrectAnswer = "N";
+    private static string CorrectAnswer = "N"; // Якщо у юзера зараз питання - тут правильна відповідь, якщо ні - N (як None)
 
     static async Task Main(string[] args)
     {
         Env.Load();
         var botToken = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN");
-        Client = new TelegramBotClient(botToken);
+        Client = new TelegramBotClient(botToken); // .енв тупить, якщо не працює просто прямо встав токен
         var me = await Client.GetMeAsync();
 
         Console.WriteLine($"@{me.Username} is running...");
@@ -78,28 +78,35 @@ class Program
         {
             await Client.SendTextMessageAsync(msg.Chat.Id, "Привіт! Я - твій бот для навчання англійської");
         }
-        else if (msg.Text == "/definition")
+        else if (CorrectAnswer != "N")
         {
-            await DefinitionQuestion(msg);
-        }
-        else
-        {
-            if (msg.Text.Equals(CorrectAnswer, StringComparison.OrdinalIgnoreCase))
+            if (msg.Text.StartsWith('/')) // щоб не можна було вийти з невідомого питання
             {
-                await Client.SendTextMessageAsync(msg.Chat.Id, "Correct!");
+                await Client.SendTextMessageAsync(msg.Chat.Id, "Будь ласка, дайте відповідь на питання");
             }
             else
             {
-                await Client.SendTextMessageAsync(msg.Chat.Id, $"Wrong, the correct answer is {CorrectAnswer}");
+                if (msg.Text.Equals(CorrectAnswer, StringComparison.OrdinalIgnoreCase))
+                {
+                    await Client.SendTextMessageAsync(msg.Chat.Id, "Правильно!", replyMarkup: new ReplyKeyboardRemove());
+                }
+                else
+                {
+                    await Client.SendTextMessageAsync(msg.Chat.Id, $"Неправильно. Правильна відповідь: \n{CorrectAnswer}", replyMarkup: new ReplyKeyboardRemove());
+                }
                 CorrectAnswer = "N";
             }
+        }
+        else if (msg.Text == "/definition")
+        {
+            await DefinitionQuestion(msg);
         }
     }
 
     private static async Task DefinitionQuestion(Message msg)
     {
-        string randomWordUrl = "https://random-word-api.herokuapp.com/word?number=4";
-        HttpResponseMessage response = await HttpClient.GetAsync(randomWordUrl);
+        string randomWordUrl = "https://random-word-api.herokuapp.com/word?number=4"; // якщо буде словник то слова та визначення з нього
+        HttpResponseMessage response = await HttpClient.GetAsync(randomWordUrl);      // але поки хай це буде
         response.EnsureSuccessStatusCode();
 
         string responseBody = await response.Content.ReadAsStringAsync();
@@ -124,6 +131,7 @@ class Program
         {
             string definitionUrl = $"https://api.dictionaryapi.dev/api/v2/entries/en/{word}";
             HttpResponseMessage definitionResponse = await HttpClient.GetAsync(definitionUrl);
+
             if (!definitionResponse.IsSuccessStatusCode)
             {
                 await Client.SendTextMessageAsync(msg.Chat.Id, "Failed to get word definition.");
@@ -131,9 +139,9 @@ class Program
             }
 
             string definitionBody = await definitionResponse.Content.ReadAsStringAsync();
-            try
+            try // тут воно не хотіло нормально достати значення з джейсона, тому довга муть
             {
-                using (JsonDocument doc = JsonDocument.Parse(definitionBody))
+                using (JsonDocument doc = JsonDocument.Parse(definitionBody)) 
                 {
                     JsonElement root = doc.RootElement;
 
@@ -162,16 +170,16 @@ class Program
             }
         }
 
-        CorrectAnswer = Definitions[0];
+        Random rand = new Random();
+        int CurrentCorrect = rand.Next(4); // рандомно обирається правильний варіант
 
-        System.Random random = new System.Random();
-        Definitions.OrderBy(x => random.Next()).ToArray();
+        CorrectAnswer = Definitions[CurrentCorrect];
 
         var replyKeyboard = new ReplyKeyboardMarkup(new[] {
             new[] { new KeyboardButton(Definitions[0]), new KeyboardButton(Definitions[1]) },
             new[] { new KeyboardButton(Definitions[2]), new KeyboardButton(Definitions[3]) }});
 
-        await Client.SendTextMessageAsync(msg.Chat.Id, $"Define '{Words[0]}' and choose the correct definition:", replyMarkup: replyKeyboard);
+        await Client.SendTextMessageAsync(msg.Chat.Id, $"Дайте визначення слову '{Words[CurrentCorrect]}':", replyMarkup: replyKeyboard);
     }
 }
 
