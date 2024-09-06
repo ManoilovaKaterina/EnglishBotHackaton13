@@ -20,7 +20,7 @@ class Program
     private static TelegramBotClient Client;
     private static ConcurrentDictionary<long, string> _userFileRequests = new ConcurrentDictionary<long, string>();
     private static CancellationTokenSource _cts = new CancellationTokenSource();
-    private static string CorrectAnswer = "A";
+    private static string CorrectAnswer = "N";
 
     static async Task Main(string[] args)
     {
@@ -82,7 +82,7 @@ class Program
         {
             await DefinitionQuestion(msg);
         }
-        else if (msg.Text == "1" || msg.Text == "2" || msg.Text == "3" || msg.Text == "4")
+        else
         {
             if (msg.Text.Equals(CorrectAnswer, StringComparison.OrdinalIgnoreCase))
             {
@@ -91,6 +91,7 @@ class Program
             else
             {
                 await Client.SendTextMessageAsync(msg.Chat.Id, $"Wrong, the correct answer is {CorrectAnswer}");
+                CorrectAnswer = "N";
             }
         }
     }
@@ -161,24 +162,16 @@ class Program
             }
         }
 
-        string CorrectDef = Definitions[0];
+        CorrectAnswer = Definitions[0];
 
         System.Random random = new System.Random();
         Definitions.OrderBy(x => random.Next()).ToArray();
 
-        CorrectAnswer = (Definitions.IndexOf(CorrectDef)+1).ToString();
-        Console.WriteLine(CorrectAnswer);
+        var replyKeyboard = new ReplyKeyboardMarkup(new[] {
+            new[] { new KeyboardButton(Definitions[0]), new KeyboardButton(Definitions[1]) },
+            new[] { new KeyboardButton(Definitions[2]), new KeyboardButton(Definitions[3]) }});
 
-        string QuesString = "";
-        for(int i = 0; i<4; i++)
-        {
-            QuesString += $"\n{i+1}) {Definitions[i]}";
-        }
-
-        await Client.SendTextMessageAsync(
-            msg.Chat.Id,
-            $"Define '{Words[0]}' and choose the correct definition:"+QuesString
-        );
+        await Client.SendTextMessageAsync(msg.Chat.Id, $"Define '{Words[0]}' and choose the correct definition:", replyMarkup: replyKeyboard);
     }
 }
 
