@@ -17,7 +17,8 @@ class Program
 
     static async Task Main(string[] args)
     {
-        Client = new TelegramBotClient("7313187643:AAFw5dBBBRMn1O6McVDVTRRViWX76I-yI80", cancellationToken: _cts.Token);
+        var botToken = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN");
+        Client = new TelegramBotClient(botToken, cancellationToken: _cts.Token);
         var me = await Client.GetMeAsync();
 
         Console.WriteLine($"@{me.Username} is running...");
