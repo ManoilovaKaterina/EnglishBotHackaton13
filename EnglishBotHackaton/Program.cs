@@ -8,16 +8,20 @@ using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using DotNetEnv;
+using System.Text.Json;
 
 class Program
 {
+    private static readonly HttpClient HttpClient = new HttpClient();
     private static TelegramBotClient Client;
     private static ConcurrentDictionary<long, string> _userFileRequests = new ConcurrentDictionary<long, string>();
     private static CancellationTokenSource _cts = new CancellationTokenSource();
 
     static async Task Main(string[] args)
     {
-        var botToken = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN");
+        Env.Load();
+        string botToken = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN");
         Client = new TelegramBotClient(botToken, cancellationToken: _cts.Token);
         var me = await Client.GetMeAsync();
 
@@ -68,6 +72,30 @@ class Program
         if (msg.Text == "/start")
         {
             await Client.SendTextMessageAsync(msg.Chat.Id, "Привіт! Я - твій бот для навчання англійської");
+        }
+        else if (msg.Text == "/test")
+        {
+            await GetTranslationQuestion(msg);
+        }
+    }
+
+    private static async Task GetTranslationQuestion(Message msg)
+    {
+        string url = "https://random-word-api.herokuapp.com/word";
+        HttpResponseMessage response = await HttpClient.GetAsync(url);
+        response.EnsureSuccessStatusCode();
+
+        string responseBody = await response.Content.ReadAsStringAsync();
+
+        using (JsonDocument doc = JsonDocument.Parse(responseBody))
+        {
+            JsonElement root = doc.RootElement;
+
+            if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() == 1)
+            {
+                string value = root[0].GetString();
+                await Client.SendTextMessageAsync(msg.Chat.Id, value);
+            }
         }
     }
 }
