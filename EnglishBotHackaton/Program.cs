@@ -206,15 +206,15 @@ class Program
                 break;
 
             case "translation":
-                var translationWords = wordList.OrderBy(x => Guid.NewGuid()).Take(5).ToList();
+                var translationWords = wordList.OrderBy(x => rand.Next()).Take(5).ToList();
                 questions = translationWords.Select(word => (
                     question: $"What is the translation of '{word.Word}'?",
                     options: wordList
                     .Where(w => w.Translation != word.Translation)
                     .OrderBy(x => rand.Next())
                     .Take(3)
-                    .Select(w => w.Definition)
-                    .Concat(new[] { word.Definition })
+                    .Select(w => w.Translation)
+                    .Concat(new[] { word.Translation })
                     .OrderBy(x => rand.Next())
                     .ToArray(),
                     correctAnswer: word.Translation
@@ -222,7 +222,7 @@ class Program
                 break;
 
             case "fillintheblanks":
-                questions = dataForFillIn.OrderBy(x => Guid.NewGuid()).Take(5).ToList();
+                questions = dataForFillIn.OrderBy(x => rand.Next()).Take(5).ToList();
                 break;
 
             default:
@@ -266,3 +266,4 @@ class Program
             await Client.SendTextMessageAsync(chatId, questionText, replyMarkup: replyKeyboard);
         }
     }
+}
