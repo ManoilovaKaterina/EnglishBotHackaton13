@@ -106,13 +106,14 @@ class Program
         )
     };
 
-    private static Dictionary<string, TimeSpan> userPreferredTimes = new Dictionary<string, TimeSpan>();//сюди з бази даних айдішки та час
+    private static Dictionary<string, TimeSpan> userPreferredTimes = new Dictionary<string, TimeSpan>();
+    private static Dictionary<string, string> userCorrectAnswers = new Dictionary<string, string>();
 
     static async Task Main(string[] args)
     {
         Env.Load();
         var botToken = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN");
-        Client = new TelegramBotClient("7313187643:AAFw5dBBBRMn1O6McVDVTRRViWX76I-yI80");
+        Client = new TelegramBotClient(botToken);
         var me = await Client.GetMeAsync();
 
         Console.WriteLine($"@{me.Username} is running...");
@@ -191,8 +192,9 @@ class Program
         if (msg.Text == "/start")
         {
             await Client.SendTextMessageAsync(msg.Chat.Id, "Привіт! Я - твій бот для навчання англійської");
+            userCorrectAnswers[msg.Chat.Id.ToString()] = "N";
         }
-        else if (CorrectAnswer != "N")
+        else if (userCorrectAnswers.ContainsKey(msg.Chat.Id.ToString()) && userCorrectAnswers[msg.Chat.Id.ToString()] != "N")
         {
             if (msg.Text.StartsWith('/')) // щоб не можна було вийти з невідомого питання
             {
@@ -200,15 +202,15 @@ class Program
             }
             else
             {
-                if (msg.Text.Equals(CorrectAnswer, StringComparison.OrdinalIgnoreCase))
+                if (msg.Text.Equals(userCorrectAnswers[msg.Chat.Id.ToString()], StringComparison.OrdinalIgnoreCase))
                 {
                     await Client.SendTextMessageAsync(msg.Chat.Id, "Правильно!", replyMarkup: new ReplyKeyboardRemove());
                 }
                 else
                 {
-                    await Client.SendTextMessageAsync(msg.Chat.Id, $"Неправильно. Правильна відповідь: \n{CorrectAnswer}", replyMarkup: new ReplyKeyboardRemove());
+                    await Client.SendTextMessageAsync(msg.Chat.Id, $"Неправильно. Правильна відповідь: \n{userCorrectAnswers[msg.Chat.Id.ToString()]}", replyMarkup: new ReplyKeyboardRemove());
                 }
-                CorrectAnswer = "N";
+                userCorrectAnswers[msg.Chat.Id.ToString()] = "N";
             }
         }
         else if (msg.Text == "/definition")
@@ -237,11 +239,8 @@ class Program
         }
         else if (TimeSpan.TryParse(msg.Text, out TimeSpan preferredTime))
         {
-            if (!userPreferredTimes.ContainsKey(msg.Chat.Id.ToString()))
-            {
-                userPreferredTimes[msg.Chat.Id.ToString()] = preferredTime;
-                await ScheduleDailyMessage(msg.Chat.Id.ToString(), preferredTime);
-            }
+            userPreferredTimes[msg.Chat.Id.ToString()] = preferredTime;
+            await ScheduleDailyMessage(msg.Chat.Id.ToString(), preferredTime);
 
             await Client.SendTextMessageAsync(msg.Chat.Id, $"Ви будете отримувати нагадування о {preferredTime}", replyMarkup: new ReplyKeyboardRemove());
         }
@@ -319,7 +318,7 @@ class Program
 
         var chosenWords = wordList.OrderBy(x => rand.Next()).Take(4).ToList();
 
-        CorrectAnswer = chosenWords[CurrentCorrect].Definition;
+        userCorrectAnswers[msg.Chat.Id.ToString()] = chosenWords[CurrentCorrect].Definition;
 
         var replyKeyboard = new ReplyKeyboardMarkup(new[] {
             new[] { new KeyboardButton(chosenWords[0].Definition), new KeyboardButton(chosenWords[1].Definition) },
@@ -335,7 +334,7 @@ class Program
 
         var chosenWords = wordList.OrderBy(x => rand.Next()).Take(4).ToList();
 
-        CorrectAnswer = chosenWords[CurrentCorrect].Translation;
+        userCorrectAnswers[msg.Chat.Id.ToString()] = chosenWords[CurrentCorrect].Translation;
 
         var replyKeyboard = new ReplyKeyboardMarkup(new[] {
             new[] { new KeyboardButton(chosenWords[0].Translation), new KeyboardButton(chosenWords[1].Translation) },
@@ -404,7 +403,7 @@ class Program
 
         var exercise = dataForFillIn[index];
 
-        CorrectAnswer = exercise.correctAnswer; // Устанавливаем правильный ответ
+        userCorrectAnswers[msg.Chat.Id.ToString()] = exercise.correctAnswer; // Устанавливаем правильный ответ
 
         var replyKeyboard = new ReplyKeyboardMarkup(exercise.options.Select(option => new KeyboardButton(option)).ToArray())
         {
