@@ -174,6 +174,10 @@ class Program
 
             await Client.SendTextMessageAsync(msg.Chat.Id, $"Ви будете отримувати нагадування о {preferredTime}", replyMarkup: new ReplyKeyboardRemove());
         }
+        else if (msg.Text == "/fillintheblank")
+        {
+            await FillInTheBlankExercise(msg);
+        }
     }
 
     private static async Task DefinitionQuestion(Message msg)
@@ -271,6 +275,58 @@ class Program
             new[] { new KeyboardButton(chosenWords[2].Translation), new KeyboardButton(chosenWords[3].Translation) }});
 
         await Client.SendTextMessageAsync(msg.Chat.Id, $"Дайте визначення слову '{chosenWords[CurrentCorrect].Word}':", replyMarkup: replyKeyboard);
+    }
+
+    private static async Task FillInTheBlankExercise(Message msg)
+    {
+        // Пример упражнений с пропущенными словами
+        var exercises = new List<(string Sentence, string CorrectAnswer, string[] Options)>
+    {
+        (
+            "I need to buy a new __________ because my old one is broken.",
+            "jacket",
+            new[] { "car", "lamp", "book", "jacket" }
+        ),
+        (
+            "She put the cake in the __________ to keep it fresh.",
+            "refrigerator",
+            new[] { "refrigerator", "kitchen", "table", "chair" }
+        ),
+        (
+            "They visited the __________ to see the ancient artifacts.",
+            "museum",
+            new[] { "library", "museum", "park", "school" }
+        ),
+        (
+            "He found a __________ on the ground while walking to work.",
+            "coin",
+            new[] { "book", "coin", "tree", "car" }
+        ),
+        (
+            "The __________ was full of delicious fruits and vegetables.",
+            "store",
+            new[] { "store", "river", "road", "computer" }
+        )
+    };
+
+        // Выбираем случайное упражнение
+        var random = new Random();
+        var exercise = exercises[random.Next(exercises.Count)];
+
+        // Отправляем упражнение пользователю
+        var replyKeyboard = new ReplyKeyboardMarkup(new[]
+        {
+        new[] { new KeyboardButton(exercise.Options[0]), new KeyboardButton(exercise.Options[1]) },
+        new[] { new KeyboardButton(exercise.Options[2]), new KeyboardButton(exercise.Options[3]) }
+    });
+
+        await Client.SendTextMessageAsync(msg.Chat.Id,
+            $"Fill in the blank: {exercise.Sentence}",
+            replyMarkup: replyKeyboard
+        );
+
+        // Устанавливаем правильный ответ для последующей проверки
+        CorrectAnswer = exercise.CorrectAnswer;
     }
 }
 
