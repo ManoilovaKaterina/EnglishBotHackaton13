@@ -29,7 +29,7 @@ namespace EnglishBotHackaton
 
         private static List<WordEntry> LoadWordList()
         {
-            string dictPath = "C:\\Users\\undor\\source\\repos\\EnglishBotHackaton\\EnglishBotHackaton\\dictionary.txt";
+            string dictPath = "C:\\Users\\User\\source\\repos\\EnglishBotHackaton13.5\\EnglishBotHackaton\\dictionary.txt";
 
             var wordList = new List<WordEntry>();
 
@@ -50,7 +50,7 @@ namespace EnglishBotHackaton
         }
         private static List<(string question, string[] options, string correctAnswer)> LoadQuestionList()
         {
-            string questPath = "C:\\Users\\undor\\source\\repos\\EnglishBotHackaton\\EnglishBotHackaton\\fillin.txt";
+            string questPath = "C:\\Users\\User\\source\\repos\\EnglishBotHackaton13.5\\EnglishBotHackaton\\fillin.txt";
 
             var list = new List<(string question, string[] options, string correctAnswer)>();
 

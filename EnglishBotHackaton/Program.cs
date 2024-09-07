@@ -29,6 +29,8 @@ class Program
     private static Dictionary<string, int> userQuestionIndexes = new Dictionary<string, int>();
     private static Dictionary<string, List<(string question, string[] options, string correctAnswer)>> userCurrentQuestions = new Dictionary<string, List<(string question, string[] options, string correctAnswer)>>();
 
+    private static Dictionary<string, (DateTime lastExerciseDate, int streak)> userStreaks = new();
+
     static async Task Main(string[] args)
     {
         Env.Load();
@@ -148,6 +150,18 @@ class Program
                 {
                     userQuestionIndexes[chatId] = 0;
                     await Client.SendTextMessageAsync(msg.Chat.Id, "You have completed the questions!");
+
+                    if (userStreaks.TryGetValue(chatId, out var streakData))
+                    {
+                        if (streakData.lastExerciseDate != DateTime.UtcNow.Date)
+                        {
+                            UpdateUserStreak(chatId);
+                        }
+                    }
+                    else
+                    {
+                        UpdateUserStreak(chatId);
+                    }
                 }
             }
         }
@@ -170,6 +184,10 @@ class Program
                 new[] { new KeyboardButton("18:00"), new KeyboardButton("20:00") } });
 
             await Client.SendTextMessageAsync(msg.Chat.Id, "Please choose a time:", replyMarkup: replyKeyboard);
+        }
+        else if (msg.Text == "/streak")
+        {
+            await ShowStreak(chatId);
         }
         else if (TimeSpan.TryParse(msg.Text, out TimeSpan preferredTime))
         {
@@ -264,6 +282,39 @@ class Program
             string questionText = question.question;
 
             await Client.SendTextMessageAsync(chatId, questionText, replyMarkup: replyKeyboard);
+        }
+    }
+
+    private static void UpdateUserStreak(string chatId)
+    {
+        var today = DateTime.UtcNow.Date;
+
+        if (userStreaks.TryGetValue(chatId, out var streakData))
+        {
+            if (streakData.lastExerciseDate == today.AddDays(-1))
+            {
+                userStreaks[chatId] = (today, streakData.streak + 1);
+            }
+            else if (streakData.lastExerciseDate < today)
+            {
+                userStreaks[chatId] = (today, 1);
+            }
+        }
+        else
+        {
+            userStreaks[chatId] = (today, 1);
+        }
+    }
+
+    private static async Task ShowStreak(string chatId)
+    {
+        if (userStreaks.TryGetValue(chatId, out var streakData))
+        {
+            await Client.SendTextMessageAsync(chatId, $"Ваш текущий стрик: {streakData.streak} дней.");
+        }
+        else
+        {
+            await Client.SendTextMessageAsync(chatId, "Вы ещё не начинали серию.");
         }
     }
 }
