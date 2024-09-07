@@ -23,88 +23,10 @@ class Program
     private static readonly HttpClient HttpClient = new HttpClient();
     private static TelegramBotClient Client;
     private static CancellationTokenSource _cts = new CancellationTokenSource();
-    private static string CorrectAnswer = "N"; // Якщо у юзера зараз питання - тут правильна відповідь, якщо ні - N (як None)
 
     private static List<WordEntry> wordList = WordListProvider.WordList;
 
-    private static List<(string question, string[] options, string correctAnswer)> dataForFillIn = new List<(string, string[], string)>
-    {
-        (
-            "She always ______ her coffee with milk and sugar.",
-            new[] { "drinks", "cup", "sugar", "hot" },
-            "drinks"
-        ),
-        (
-            "I usually ______ my homework in the evening.",
-            new[] { "did", "doing", "do", "done" },
-            "do"
-        ),
-        (
-            "They ______ to the park every weekend.",
-            new[] { "go", "went", "going", "gone" },
-            "go"
-        ),
-        (
-            "He ______ a new book at the library yesterday.",
-            new[] { "reads", "borrowed", "reading", "book" },
-            "borrowed"
-        ),
-        (
-            "The cat ______ on the mat all day long.",
-            new[] { "sleep", "sleeping", "sleeps", "slept" },
-            "sleeps"
-        ),
-        (
-            "She put the cake in the ______ to keep it fresh.",
-            new[] { "refrigerator", "kitchen", "table", "chair" },
-            "refrigerator"
-        ),
-        (
-            "They visited the ______ to see the ancient artifacts.",
-            new[] { "library", "museum", "park", "school" },
-            "museum"
-        ),
-        (
-            "He found a ______ on the ground while walking to work.",
-            new[] { "book", "coin", "tree", "car" },
-            "coin"
-        ),
-        (
-            "The ______ was full of delicious fruits and vegetables.",
-            new[] { "store", "river", "road", "computer" },
-            "store"
-        ),
-        (
-            "She used a ______ to write her notes in class.",
-            new[] { "pen", "chair", "table", "window" },
-            "pen"
-        ),
-        (
-            "The weather was so ______ that we decided to have a picnic.",
-            new[] { "rainy", "sunny", "dark", "cold" },
-            "sunny"
-        ),
-        (
-            "She wore a ______ dress to the party that everyone admired.",
-            new[] { "old", "beautiful", "large", "heavy" },
-            "beautiful"
-        ),
-        (
-            "The movie was quite ______, and it made everyone laugh.",
-            new[] { "boring", "exciting", "expensive", "dull" },
-            "exciting"
-        ),
-        (
-            "The cake was ______ and everyone enjoyed it.",
-            new[] { "spicy", "delicious", "sour", "tough" },
-            "delicious"
-        ),
-        (
-            "He lives in a ______ house with a large garden.",
-            new[] { "small", "noisy", "spacious", "messy" },
-            "spacious"
-        )
-    };
+    private static List<(string question, string[] options, string correctAnswer)> dataForFillIn = WordListProvider.QuestList;
 
     private static Dictionary<string, TimeSpan> userPreferredTimes = new Dictionary<string, TimeSpan>();
     private static Dictionary<string, string> userCorrectAnswers = new Dictionary<string, string>();
@@ -113,7 +35,7 @@ class Program
     {
         Env.Load();
         var botToken = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN");
-        Client = new TelegramBotClient(botToken);
+        Client = new TelegramBotClient("7313187643:AAFw5dBBBRMn1O6McVDVTRRViWX76I-yI80");
         var me = await Client.GetMeAsync();
 
         Console.WriteLine($"@{me.Username} is running...");
@@ -138,8 +60,11 @@ class Program
     {
         var commands = new List<BotCommand>
         {
-            new BotCommand { Command = "start", Description = "Start" },
-            new BotCommand { Command = "definition", Description = "Test your knowlege of words\' definitions" }
+            new BotCommand { Command = "start", Description = "Старт" },
+            new BotCommand { Command = "definition", Description = "Перевірте знання визначень слів" },
+            new BotCommand { Command = "translation", Description = "Перевірте знання перекладу слів" },
+            new BotCommand { Command = "fillintheblanks", Description = "Перевірте знання слів в контексті речення" },
+            new BotCommand { Command = "reminder", Description = "Виставити час нагадування" },
         };
 
         await Client.SetMyCommandsAsync(commands);
@@ -172,7 +97,7 @@ class Program
         ITrigger trigger = TriggerBuilder.Create()
             .WithIdentity($"sendMessageTrigger_{chatId}", "group1")
             .StartNow()
-            .WithSchedule(CronScheduleBuilder.DailyAtHourAndMinute(sendTime.Hours, sendTime.Minutes))  // Daily trigger at user-specific time
+            .WithSchedule(CronScheduleBuilder.DailyAtHourAndMinute(sendTime.Hours, sendTime.Minutes))
             .Build();
 
         await scheduler.ScheduleJob(job, trigger);
@@ -191,7 +116,8 @@ class Program
     {
         if (msg.Text == "/start")
         {
-            await Client.SendTextMessageAsync(msg.Chat.Id, "Привіт! Я - твій бот для навчання англійської");
+            await Client.SendTextMessageAsync(msg.Chat.Id, "Привіт! Я - твій бот для навчання англійської\n" +
+                "Даний бот надає ряд вправ для перевріки твоїх знань визначень та перекладу слів, а також їх використання в реченнях.");
             userCorrectAnswers[msg.Chat.Id.ToString()] = "N";
         }
         else if (userCorrectAnswers.ContainsKey(msg.Chat.Id.ToString()) && userCorrectAnswers[msg.Chat.Id.ToString()] != "N")
@@ -224,10 +150,6 @@ class Program
         else if (msg.Text == "/fillintheblanks")
         {
             await FillInTheBlankExercise(msg);
-        }
-        else if (msg.Text == "/general")
-        {
-            await DefinitionQuestion(msg);
         }
         else if (msg.Text == "/reminder")
         {

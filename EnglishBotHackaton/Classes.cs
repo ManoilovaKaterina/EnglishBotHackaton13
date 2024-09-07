@@ -25,14 +25,15 @@ namespace EnglishBotHackaton
     public static class WordListProvider
     {
         public static List<WordEntry> WordList { get; private set; } = LoadWordList();
+        public static List<(string question, string[] options, string correctAnswer)> QuestList { get; private set; } = LoadQuestionList();
 
         private static List<WordEntry> LoadWordList()
         {
-            string filePath = "C:\\Users\\undor\\source\\repos\\EnglishBotHackaton\\EnglishBotHackaton\\dictionary.txt";
+            string dictPath = "C:\\Users\\undor\\source\\repos\\EnglishBotHackaton\\EnglishBotHackaton\\dictionary.txt";
 
             var wordList = new List<WordEntry>();
 
-            foreach (var line in File.ReadLines(filePath))
+            foreach (var line in File.ReadLines(dictPath))
             {
                 var parts = line.Split('|');
                 if (parts.Length == 3)
@@ -46,6 +47,28 @@ namespace EnglishBotHackaton
             }
 
             return wordList;
+        }
+        private static List<(string question, string[] options, string correctAnswer)> LoadQuestionList()
+        {
+            string questPath = "C:\\Users\\undor\\source\\repos\\EnglishBotHackaton\\EnglishBotHackaton\\fillin.txt";
+
+            var list = new List<(string question, string[] options, string correctAnswer)>();
+
+            foreach (var line in File.ReadLines(questPath))
+            {
+                var parts = line.Split('|');
+
+                if (parts.Length >= 5)
+                {
+                    string question = parts[0].Trim();
+                    string[] options = parts[1..^1];
+                    string correctAnswer = parts[^1].Trim();
+
+                    list.Add((question, options, correctAnswer));
+                }
+            }
+
+            return list;
         }
     }
 }
