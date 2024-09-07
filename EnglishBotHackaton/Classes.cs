@@ -28,7 +28,7 @@ namespace EnglishBotHackaton
 
         private static List<WordEntry> LoadWordList()
         {
-            string filePath = "dictionary.txt";
+            string filePath = "C:\\Users\\undor\\source\\repos\\EnglishBotHackaton\\EnglishBotHackaton\\dictionary.txt";
 
             var wordList = new List<WordEntry>();
 

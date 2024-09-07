@@ -112,7 +112,7 @@ class Program
     {
         Env.Load();
         var botToken = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN");
-        Client = new TelegramBotClient(botToken);
+        Client = new TelegramBotClient("7313187643:AAFw5dBBBRMn1O6McVDVTRRViWX76I-yI80");
         var me = await Client.GetMeAsync();
 
         Console.WriteLine($"@{me.Username} is running...");
@@ -219,9 +219,9 @@ class Program
         {
             await TranslationQuestion(msg);
         }
-        else if (msg.Text == "/complete")
+        else if (msg.Text == "/fillintheblanks")
         {
-            //await CompleteSentenceQuestion(msg);
+            await FillInTheBlankExercise(msg);
         }
         else if (msg.Text == "/general")
         {
