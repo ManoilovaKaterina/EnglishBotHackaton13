@@ -14,6 +14,8 @@ using System.Text.Json;
 using Telegram.Bot.Types.ReplyMarkups;
 using System.Diagnostics.Eventing.Reader;
 using Microsoft.VisualBasic;
+using Quartz.Impl;
+using Quartz;
 
 class Program
 {
@@ -21,6 +23,8 @@ class Program
     private static TelegramBotClient Client;
     private static CancellationTokenSource _cts = new CancellationTokenSource();
     private static string CorrectAnswer = "N"; // Якщо у юзера зараз питання - тут правильна відповідь, якщо ні - N (як None)
+
+    private static Dictionary<string, TimeSpan> userPreferredTimes = new Dictionary<string, TimeSpan>();//сюди з бази даних айдішки та час
 
     static async Task Main(string[] args)
     {
@@ -72,6 +76,34 @@ class Program
         Console.WriteLine(exception);
     }
 
+    public static async Task ScheduleDailyMessage(string chatId, TimeSpan sendTime)
+    {
+        IScheduler scheduler = await StdSchedulerFactory.GetDefaultScheduler();
+        await scheduler.Start();
+
+        IJobDetail job = JobBuilder.Create<SendMessageJob>()
+            .WithIdentity($"sendMessageJob_{chatId}", "group1")
+            .UsingJobData("chatId", chatId)
+            .Build();
+
+        ITrigger trigger = TriggerBuilder.Create()
+            .WithIdentity($"sendMessageTrigger_{chatId}", "group1")
+            .StartNow()
+            .WithSchedule(CronScheduleBuilder.DailyAtHourAndMinute(sendTime.Hours, sendTime.Minutes))  // Daily trigger at user-specific time
+            .Build();
+
+        await scheduler.ScheduleJob(job, trigger);
+    }
+
+    public class SendMessageJob : IJob
+    {
+        public async Task Execute(IJobExecutionContext context)
+        {
+            var chatId = context.JobDetail.JobDataMap.GetString("chatId");
+            await Client.SendTextMessageAsync(chatId, "Нагадування: час займатись англійською!");
+        }
+    }
+
     private static async Task OnMessage(Message msg)
     {
         if (msg.Text == "/start")
@@ -100,6 +132,36 @@ class Program
         else if (msg.Text == "/definition")
         {
             await DefinitionQuestion(msg);
+        }
+        else if (msg.Text == "/translation")
+        {
+            await DefinitionQuestion(msg);
+        }
+        else if (msg.Text == "/complete")
+        {
+            await DefinitionQuestion(msg);
+        }
+        else if (msg.Text == "/general")
+        {
+            await DefinitionQuestion(msg);
+        }
+        else if (msg.Text == "/reminder")
+        {
+            var replyKeyboard = new ReplyKeyboardMarkup(new[] {
+            new[] { new KeyboardButton("9:00"), new KeyboardButton("10:00") },
+            new[] { new KeyboardButton("18:00"), new KeyboardButton("20:00") }});
+
+            await Client.SendTextMessageAsync(msg.Chat.Id, "Будь ласка, оберіть час:", replyMarkup: replyKeyboard);
+        }
+        else if (TimeSpan.TryParse(msg.Text, out TimeSpan preferredTime))
+        {
+            if (!userPreferredTimes.ContainsKey(msg.Chat.Id.ToString()))
+            {
+                userPreferredTimes[msg.Chat.Id.ToString()] = preferredTime;
+                await ScheduleDailyMessage(msg.Chat.Id.ToString(), preferredTime);
+            }
+
+            await Client.SendTextMessageAsync(msg.Chat.Id, $"Ви будете отримувати нагадування о {preferredTime}", replyMarkup: new ReplyKeyboardRemove());
         }
     }
 
