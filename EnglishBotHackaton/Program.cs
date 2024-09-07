@@ -25,15 +25,7 @@ class Program
     private static CancellationTokenSource _cts = new CancellationTokenSource();
     private static string CorrectAnswer = "N"; // Якщо у юзера зараз питання - тут правильна відповідь, якщо ні - N (як None)
 
-    private static List<WordEntry> wordList = new List<WordEntry>
-        {
-            new WordEntry("Book", "Книга", "A set of written or printed pages, usually bound with a protective cover."),
-            new WordEntry("Apple", "Яблоко", "A round fruit with red or green skin and a whitish interior."),
-            new WordEntry("House", "Дім", "A building for human habitation."),
-            new WordEntry("Computer", "Комп'ютер", "An electronic device for storing and processing data."),
-            new WordEntry("Pear", "Груша", "An edible fruit produced by the pear tree, similar to an apple but elongated towards the stem."),
-            new WordEntry("Evident", "Очевидний", "Сlearly revealed to the mind or the senses or judgment"),
-        };
+    private static List<WordEntry> wordList = WordListProvider.WordList;
 
     private static Dictionary<string, TimeSpan> userPreferredTimes = new Dictionary<string, TimeSpan>();//сюди з бази даних айдішки та час
 
@@ -41,7 +33,7 @@ class Program
     {
         Env.Load();
         var botToken = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN");
-        Client = new TelegramBotClient(botToken);
+        Client = new TelegramBotClient("7313187643:AAFw5dBBBRMn1O6McVDVTRRViWX76I-yI80");
         var me = await Client.GetMeAsync();
 
         Console.WriteLine($"@{me.Username} is running...");
@@ -174,6 +166,10 @@ class Program
 
             await Client.SendTextMessageAsync(msg.Chat.Id, $"Ви будете отримувати нагадування о {preferredTime}", replyMarkup: new ReplyKeyboardRemove());
         }
+        else if (msg.Text == "/fillintheblank")
+        {
+            await FillInTheBlankExercise(msg);
+        }
     }
 
     private static async Task DefinitionQuestion(Message msg)
@@ -272,5 +268,56 @@ class Program
 
         await Client.SendTextMessageAsync(msg.Chat.Id, $"Дайте визначення слову '{chosenWords[CurrentCorrect].Word}':", replyMarkup: replyKeyboard);
     }
-}
 
+    private static async Task FillInTheBlankExercise(Message msg)
+    {
+        // Пример упражнений с пропущенными словами
+        var exercises = new List<(string Sentence, string CorrectAnswer, string[] Options)>
+    {
+        (
+            "I need to buy a new __________ because my old one is broken.",
+            "jacket",
+            new[] { "car", "lamp", "book", "jacket" }
+        ),
+        (
+            "She put the cake in the __________ to keep it fresh.",
+            "refrigerator",
+            new[] { "refrigerator", "kitchen", "table", "chair" }
+        ),
+        (
+            "They visited the __________ to see the ancient artifacts.",
+            "museum",
+            new[] { "library", "museum", "park", "school" }
+        ),
+        (
+            "He found a __________ on the ground while walking to work.",
+            "coin",
+            new[] { "book", "coin", "tree", "car" }
+        ),
+        (
+            "The __________ was full of delicious fruits and vegetables.",
+            "store",
+            new[] { "store", "river", "road", "computer" }
+        )
+    };
+
+        // Выбираем случайное упражнение
+        var random = new Random();
+        var exercise = exercises[random.Next(exercises.Count)];
+
+        // Отправляем упражнение пользователю
+        var replyKeyboard = new ReplyKeyboardMarkup(new[]
+        {
+        new[] { new KeyboardButton(exercise.Options[0]), new KeyboardButton(exercise.Options[1]) },
+        new[] { new KeyboardButton(exercise.Options[2]), new KeyboardButton(exercise.Options[3]) }
+    });
+
+        await Client.SendTextMessageAsync(msg.Chat.Id,
+            $"Fill in the blank: {exercise.Sentence}",
+            replyMarkup: replyKeyboard
+        );
+
+        // Устанавливаем правильный ответ для последующей проверки
+        CorrectAnswer = exercise.CorrectAnswer;
+    }
+}
