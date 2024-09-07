@@ -35,6 +35,85 @@ class Program
             new WordEntry("Evident", "Очевидний", "Сlearly revealed to the mind or the senses or judgment"),
         };
 
+    private static List<(string question, string[] options, string correctAnswer)> dataForFillIn = new List<(string, string[], string)>
+    {
+        (
+            "She always ______ her coffee with milk and sugar.",
+            new[] { "drinks", "cup", "sugar", "hot" },
+            "drinks"
+        ),
+        (
+            "I usually ______ my homework in the evening.",
+            new[] { "did", "doing", "do", "done" },
+            "do"
+        ),
+        (
+            "They ______ to the park every weekend.",
+            new[] { "go", "went", "going", "gone" },
+            "go"
+        ),
+        (
+            "He ______ a new book at the library yesterday.",
+            new[] { "reads", "borrowed", "reading", "book" },
+            "borrowed"
+        ),
+        (
+            "The cat ______ on the mat all day long.",
+            new[] { "sleep", "sleeping", "sleeps", "slept" },
+            "sleeps"
+        ),
+        (
+            "She put the cake in the ______ to keep it fresh.",
+            new[] { "refrigerator", "kitchen", "table", "chair" },
+            "refrigerator"
+        ),
+        (
+            "They visited the ______ to see the ancient artifacts.",
+            new[] { "library", "museum", "park", "school" },
+            "museum"
+        ),
+        (
+            "He found a ______ on the ground while walking to work.",
+            new[] { "book", "coin", "tree", "car" },
+            "coin"
+        ),
+        (
+            "The ______ was full of delicious fruits and vegetables.",
+            new[] { "store", "river", "road", "computer" },
+            "store"
+        ),
+        (
+            "She used a ______ to write her notes in class.",
+            new[] { "pen", "chair", "table", "window" },
+            "pen"
+        ),
+        (
+            "The weather was so ______ that we decided to have a picnic.",
+            new[] { "rainy", "sunny", "dark", "cold" },
+            "sunny"
+        ),
+        (
+            "She wore a ______ dress to the party that everyone admired.",
+            new[] { "old", "beautiful", "large", "heavy" },
+            "beautiful"
+        ),
+        (
+            "The movie was quite ______, and it made everyone laugh.",
+            new[] { "boring", "exciting", "expensive", "dull" },
+            "exciting"
+        ),
+        (
+            "The cake was ______ and everyone enjoyed it.",
+            new[] { "spicy", "delicious", "sour", "tough" },
+            "delicious"
+        ),
+        (
+            "He lives in a ______ house with a large garden.",
+            new[] { "small", "noisy", "spacious", "messy" },
+            "spacious"
+        )
+    };
+
     private static Dictionary<string, TimeSpan> userPreferredTimes = new Dictionary<string, TimeSpan>();//сюди з бази даних айдішки та час
 
     static async Task Main(string[] args)
@@ -276,7 +355,8 @@ class Program
 
         await Client.SendTextMessageAsync(msg.Chat.Id, $"Дайте визначення слову '{chosenWords[CurrentCorrect].Word}':", replyMarkup: replyKeyboard);
     }
-
+    
+    /*
     private static async Task FillInTheBlankExercise(Message msg)
     {
         // Пример упражнений с пропущенными словами
@@ -327,6 +407,23 @@ class Program
 
         // Устанавливаем правильный ответ для последующей проверки
         CorrectAnswer = exercise.CorrectAnswer;
+    }
+    */
+    private static async Task FillInTheBlankExercise(Message msg)
+    {
+        Random rand = new Random();
+        int index = rand.Next(dataForFillIn.Count); // Выбираем случайный вопрос из списка
+
+        var exercise = dataForFillIn[index];
+
+        CorrectAnswer = exercise.correctAnswer; // Устанавливаем правильный ответ
+
+        var replyKeyboard = new ReplyKeyboardMarkup(exercise.options.Select(option => new KeyboardButton(option)).ToArray())
+        {
+            ResizeKeyboard = true
+        };
+
+        await Client.SendTextMessageAsync(msg.Chat.Id, exercise.question, replyMarkup: replyKeyboard);
     }
 }
 
