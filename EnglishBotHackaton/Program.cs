@@ -65,6 +65,7 @@ class Program
             new BotCommand { Command = "translation", Description = "Check your knowledge of word translations" },
             new BotCommand { Command = "fillintheblanks", Description = "Check your knowledge of words in context" },
             new BotCommand { Command = "reminder", Description = "Set a reminder time" },
+            new BotCommand { Command = "streak", Description = "Check your current streak" },
         };
 
         await Client.SetMyCommandsAsync(commands);
