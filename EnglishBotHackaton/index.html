@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dictionary Management</title>
+</head>
+<body>
+    <h1>Dictionary Management</h1>
+    <textarea id="dictionary" rows="10" cols="50"></textarea><br>
+    <button onclick="saveDictionary()">Save Dictionary</button>
+
+    <script>
+        async function loadDictionary() {
+            const response = await fetch('/dictionary');
+            const data = await response.text();
+            document.getElementById('dictionary').value = data;
+        }
+
+        async function saveDictionary() {
+            const data = document.getElementById('dictionary').value;
+            await fetch('/dictionary', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain'
+                },
+                body: data
+            });
+            alert('Dictionary saved!');
+        }
+
+        loadDictionary();
+    </script>
+</body>
+</html>
