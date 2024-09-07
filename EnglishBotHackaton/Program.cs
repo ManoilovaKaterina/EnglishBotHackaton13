@@ -147,7 +147,7 @@ class Program
                 else
                 {
                     userQuestionIndexes[chatId] = 0;
-                    await Client.SendTextMessageAsync(msg.Chat.Id, "You have completed the questions.");
+                    await Client.SendTextMessageAsync(msg.Chat.Id, "You have completed the questions!");
                 }
             }
         }
