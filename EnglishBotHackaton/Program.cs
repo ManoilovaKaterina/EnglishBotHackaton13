@@ -10,10 +10,7 @@ using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using DotNetEnv;
-using System.Text.Json;
 using Telegram.Bot.Types.ReplyMarkups;
-using System.Diagnostics.Eventing.Reader;
-using Microsoft.VisualBasic;
 using Quartz.Impl;
 using Quartz;
 using EnglishBotHackaton;
@@ -25,17 +22,18 @@ class Program
     private static CancellationTokenSource _cts = new CancellationTokenSource();
 
     private static List<WordEntry> wordList = WordListProvider.WordList;
-
     private static List<(string question, string[] options, string correctAnswer)> dataForFillIn = WordListProvider.QuestList;
 
     private static Dictionary<string, TimeSpan> userPreferredTimes = new Dictionary<string, TimeSpan>();
     private static Dictionary<string, string> userCorrectAnswers = new Dictionary<string, string>();
+    private static Dictionary<string, int> userQuestionIndexes = new Dictionary<string, int>();
+    private static Dictionary<string, List<(string question, string[] options, string correctAnswer)>> userCurrentQuestions = new Dictionary<string, List<(string question, string[] options, string correctAnswer)>>();
 
     static async Task Main(string[] args)
     {
         Env.Load();
         var botToken = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN");
-        Client = new TelegramBotClient("7313187643:AAFw5dBBBRMn1O6McVDVTRRViWX76I-yI80");
+        Client = new TelegramBotClient(botToken);
         var me = await Client.GetMeAsync();
 
         Console.WriteLine($"@{me.Username} is running...");
@@ -60,11 +58,11 @@ class Program
     {
         var commands = new List<BotCommand>
         {
-            new BotCommand { Command = "start", Description = "Старт" },
-            new BotCommand { Command = "definition", Description = "Перевірте знання визначень слів" },
-            new BotCommand { Command = "translation", Description = "Перевірте знання перекладу слів" },
-            new BotCommand { Command = "fillintheblanks", Description = "Перевірте знання слів в контексті речення" },
-            new BotCommand { Command = "reminder", Description = "Виставити час нагадування" },
+            new BotCommand { Command = "start", Description = "Start" },
+            new BotCommand { Command = "definition", Description = "Check your knowledge of word definitions" },
+            new BotCommand { Command = "translation", Description = "Check your knowledge of word translations" },
+            new BotCommand { Command = "fillintheblanks", Description = "Check your knowledge of words in context" },
+            new BotCommand { Command = "reminder", Description = "Set a reminder time" },
         };
 
         await Client.SetMyCommandsAsync(commands);
@@ -108,230 +106,163 @@ class Program
         public async Task Execute(IJobExecutionContext context)
         {
             var chatId = context.JobDetail.JobDataMap.GetString("chatId");
-            await Client.SendTextMessageAsync(chatId, "Нагадування: час займатись англійською!");
+            await Client.SendTextMessageAsync(chatId, "Reminder: time to study English!");
         }
     }
 
     private static async Task OnMessage(Message msg)
     {
+        string chatId = msg.Chat.Id.ToString();
+
         if (msg.Text == "/start")
         {
-            await Client.SendTextMessageAsync(msg.Chat.Id, "Привіт! Я - твій бот для навчання англійської\n" +
-                "Даний бот надає ряд вправ для перевріки твоїх знань визначень та перекладу слів, а також їх використання в реченнях.");
-            userCorrectAnswers[msg.Chat.Id.ToString()] = "N";
+            await Client.SendTextMessageAsync(msg.Chat.Id, "Hello! I am your English learning bot.\n" +
+                "This bot provides exercises to test your knowledge of definitions and translations of words, as well as their use in sentences.");
+            userCorrectAnswers[chatId] = "N";
+            userQuestionIndexes[chatId] = 0;
         }
-        else if (userCorrectAnswers.ContainsKey(msg.Chat.Id.ToString()) && userCorrectAnswers[msg.Chat.Id.ToString()] != "N")
+        else if (userCorrectAnswers.ContainsKey(chatId) && userCorrectAnswers[chatId] != "N")
         {
-            if (msg.Text.StartsWith('/')) // щоб не можна було вийти з невідомого питання
+            if (msg.Text.StartsWith('/'))
             {
-                await Client.SendTextMessageAsync(msg.Chat.Id, "Будь ласка, дайте відповідь на питання");
+                await Client.SendTextMessageAsync(msg.Chat.Id, "Please answer the question.");
             }
             else
             {
-                if (msg.Text.Equals(userCorrectAnswers[msg.Chat.Id.ToString()], StringComparison.OrdinalIgnoreCase))
+                if (msg.Text.Equals(userCorrectAnswers[chatId], StringComparison.OrdinalIgnoreCase))
                 {
-                    await Client.SendTextMessageAsync(msg.Chat.Id, "Правильно!", replyMarkup: new ReplyKeyboardRemove());
+                    await Client.SendTextMessageAsync(msg.Chat.Id, "Correct!", replyMarkup: new ReplyKeyboardRemove());
                 }
                 else
                 {
-                    await Client.SendTextMessageAsync(msg.Chat.Id, $"Неправильно. Правильна відповідь: \n{userCorrectAnswers[msg.Chat.Id.ToString()]}", replyMarkup: new ReplyKeyboardRemove());
+                    await Client.SendTextMessageAsync(msg.Chat.Id, $"Incorrect. The correct answer is: \n{userCorrectAnswers[chatId]}", replyMarkup: new ReplyKeyboardRemove());
                 }
-                userCorrectAnswers[msg.Chat.Id.ToString()] = "N";
+                userCorrectAnswers[chatId] = "N";
+                userQuestionIndexes[chatId]++;
+
+                if (userQuestionIndexes[chatId] < 5)
+                {
+                    await AskNextQuestion(chatId);
+                }
+                else
+                {
+                    userQuestionIndexes[chatId] = 0;
+                    await Client.SendTextMessageAsync(msg.Chat.Id, "You have completed the questions.");
+                }
             }
         }
         else if (msg.Text == "/definition")
         {
-            await DefinitionQuestion(msg);
+            await StartQuestionSession(chatId, "definition");
         }
         else if (msg.Text == "/translation")
         {
-            await TranslationQuestion(msg);
+            await StartQuestionSession(chatId, "translation");
         }
         else if (msg.Text == "/fillintheblanks")
         {
-            await FillInTheBlankExercise(msg);
+            await StartQuestionSession(chatId, "fillintheblanks");
         }
         else if (msg.Text == "/reminder")
         {
             var replyKeyboard = new ReplyKeyboardMarkup(new[] {
-            new[] { new KeyboardButton("9:00"), new KeyboardButton("10:00") },
-            new[] { new KeyboardButton("18:00"), new KeyboardButton("20:00") }});
+                new[] { new KeyboardButton("9:00"), new KeyboardButton("10:00") },
+                new[] { new KeyboardButton("18:00"), new KeyboardButton("20:00") } });
 
-            await Client.SendTextMessageAsync(msg.Chat.Id, "Будь ласка, оберіть час:", replyMarkup: replyKeyboard);
+            await Client.SendTextMessageAsync(msg.Chat.Id, "Please choose a time:", replyMarkup: replyKeyboard);
         }
         else if (TimeSpan.TryParse(msg.Text, out TimeSpan preferredTime))
         {
-            userPreferredTimes[msg.Chat.Id.ToString()] = preferredTime;
-            await ScheduleDailyMessage(msg.Chat.Id.ToString(), preferredTime);
+            userPreferredTimes[chatId] = preferredTime;
+            await ScheduleDailyMessage(chatId, preferredTime);
 
-            await Client.SendTextMessageAsync(msg.Chat.Id, $"Ви будете отримувати нагадування о {preferredTime}", replyMarkup: new ReplyKeyboardRemove());
+            await Client.SendTextMessageAsync(msg.Chat.Id, $"You will receive a reminder at {preferredTime}", replyMarkup: new ReplyKeyboardRemove());
         }
     }
 
-    private static async Task DefinitionQuestion(Message msg)
+    private static async Task StartQuestionSession(string chatId, string type)
     {
-        //string randomWordUrl = "https://random-word-api.herokuapp.com/word?number=4"; // якщо буде словник то слова та визначення з нього
-        //HttpResponseMessage response = await HttpClient.GetAsync(randomWordUrl);      // але поки хай це буде
-        //response.EnsureSuccessStatusCode();
+        userQuestionIndexes[chatId] = 0;
 
-        //string responseBody = await response.Content.ReadAsStringAsync();
-        //string[] Words = new string[4];
-        //List<string> Definitions = new List<string> { };
-
-        //using (JsonDocument doc = JsonDocument.Parse(responseBody))
-        //{
-        //    JsonElement root = doc.RootElement;
-
-        //    if (root.ValueKind == JsonValueKind.Array)
-        //    {
-        //        Words = root.EnumerateArray().Select(e => e.GetString()).ToArray();
-        //    }
-        //    else
-        //    {
-        //        await Client.SendTextMessageAsync(msg.Chat.Id, "Failed to get a random word.");
-        //    }
-        //}
-
-        //foreach (var word in Words)
-        //{
-        //    string definitionUrl = $"https://api.dictionaryapi.dev/api/v2/entries/en/{word}";
-        //    HttpResponseMessage definitionResponse = await HttpClient.GetAsync(definitionUrl);
-
-        //    if (!definitionResponse.IsSuccessStatusCode)
-        //    {
-        //        await Client.SendTextMessageAsync(msg.Chat.Id, "Failed to get word definition.");
-        //        return;
-        //    }
-
-        //    string definitionBody = await definitionResponse.Content.ReadAsStringAsync();
-        //    try // тут воно не хотіло нормально достати значення з джейсона, тому довга муть
-        //    {
-        //        using (JsonDocument doc = JsonDocument.Parse(definitionBody)) 
-        //        {
-        //            JsonElement root = doc.RootElement;
-
-        //            if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0)
-        //            {
-        //                var firstEntry = root[0];
-
-        //                if (firstEntry.TryGetProperty("meanings", out JsonElement meanings) && meanings.ValueKind == JsonValueKind.Array && meanings.GetArrayLength() > 0)
-        //                {
-        //                    var firstMeaning = meanings[0];
-
-        //                    if (firstMeaning.TryGetProperty("definitions", out JsonElement definitions) && definitions.ValueKind == JsonValueKind.Array && definitions.GetArrayLength() > 0)
-        //                    {
-        //                        var firstDefinition = definitions[0];
-        //                        Definitions.Add(firstDefinition.GetProperty("definition").GetString());
-        //                    }
-        //                }
-        //            }
-        //        }
-        //    }
-        //    catch (Exception e)
-        //    {
-        //        Console.WriteLine(e);
-        //        await Client.SendTextMessageAsync(msg.Chat.Id, "Failed to parse word definition.");
-        //        return;
-        //    }
-        //}
+        List<(string question, string[] options, string correctAnswer)> questions;
 
         Random rand = new Random();
-        int CurrentCorrect = rand.Next(4); // рандомно обирається правильний варіант
-
-        var chosenWords = wordList.OrderBy(x => rand.Next()).Take(4).ToList();
-
-        userCorrectAnswers[msg.Chat.Id.ToString()] = chosenWords[CurrentCorrect].Definition;
-
-        var replyKeyboard = new ReplyKeyboardMarkup(new[] {
-            new[] { new KeyboardButton(chosenWords[0].Definition), new KeyboardButton(chosenWords[1].Definition) },
-            new[] { new KeyboardButton(chosenWords[2].Definition), new KeyboardButton(chosenWords[3].Definition) }});
-
-        await Client.SendTextMessageAsync(msg.Chat.Id, $"Дайте визначення слову '{chosenWords[CurrentCorrect].Word}':", replyMarkup: replyKeyboard);
-    }
-
-    private static async Task TranslationQuestion(Message msg)
-    {
-        Random rand = new Random();
-        int CurrentCorrect = rand.Next(4); // рандомно обирається правильний варіант
-
-        var chosenWords = wordList.OrderBy(x => rand.Next()).Take(4).ToList();
-
-        userCorrectAnswers[msg.Chat.Id.ToString()] = chosenWords[CurrentCorrect].Translation;
-
-        var replyKeyboard = new ReplyKeyboardMarkup(new[] {
-            new[] { new KeyboardButton(chosenWords[0].Translation), new KeyboardButton(chosenWords[1].Translation) },
-            new[] { new KeyboardButton(chosenWords[2].Translation), new KeyboardButton(chosenWords[3].Translation) }});
-
-        await Client.SendTextMessageAsync(msg.Chat.Id, $"Дайте визначення слову '{chosenWords[CurrentCorrect].Word}':", replyMarkup: replyKeyboard);
-    }
-    
-    /*
-    private static async Task FillInTheBlankExercise(Message msg)
-    {
-        // Пример упражнений с пропущенными словами
-        var exercises = new List<(string Sentence, string CorrectAnswer, string[] Options)>
-    {
-        (
-            "I need to buy a new __________ because my old one is broken.",
-            "jacket",
-            new[] { "car", "lamp", "book", "jacket" }
-        ),
-        (
-            "She put the cake in the __________ to keep it fresh.",
-            "refrigerator",
-            new[] { "refrigerator", "kitchen", "table", "chair" }
-        ),
-        (
-            "They visited the __________ to see the ancient artifacts.",
-            "museum",
-            new[] { "library", "museum", "park", "school" }
-        ),
-        (
-            "He found a __________ on the ground while walking to work.",
-            "coin",
-            new[] { "book", "coin", "tree", "car" }
-        ),
-        (
-            "The __________ was full of delicious fruits and vegetables.",
-            "store",
-            new[] { "store", "river", "road", "computer" }
-        )
-    };
-
-        // Выбираем случайное упражнение
-        var random = new Random();
-        var exercise = exercises[random.Next(exercises.Count)];
-
-        // Отправляем упражнение пользователю
-        var replyKeyboard = new ReplyKeyboardMarkup(new[]
+        switch (type)
         {
-        new[] { new KeyboardButton(exercise.Options[0]), new KeyboardButton(exercise.Options[1]) },
-        new[] { new KeyboardButton(exercise.Options[2]), new KeyboardButton(exercise.Options[3]) }
-    });
+            case "definition":
+                var definitionWords = wordList.OrderBy(x => rand.Next()).Take(5).ToList();
+                questions = definitionWords.Select(word => (
+                    question: $"What is the definition of '{word.Word}'?",
+                    options: wordList
+                    .Where(w => w.Definition != word.Definition)
+                    .OrderBy(x => rand.Next())
+                    .Take(3)
+                    .Select(w => w.Definition)
+                    .Concat(new[] { word.Definition })
+                    .OrderBy(x => rand.Next())
+                    .ToArray(),
+                    correctAnswer: word.Definition
+                )).ToList();
+                break;
 
-        await Client.SendTextMessageAsync(msg.Chat.Id,
-            $"Fill in the blank: {exercise.Sentence}",
-            replyMarkup: replyKeyboard
-        );
+            case "translation":
+                var translationWords = wordList.OrderBy(x => Guid.NewGuid()).Take(5).ToList();
+                questions = translationWords.Select(word => (
+                    question: $"What is the translation of '{word.Word}'?",
+                    options: wordList
+                    .Where(w => w.Translation != word.Translation)
+                    .OrderBy(x => rand.Next())
+                    .Take(3)
+                    .Select(w => w.Definition)
+                    .Concat(new[] { word.Definition })
+                    .OrderBy(x => rand.Next())
+                    .ToArray(),
+                    correctAnswer: word.Translation
+                )).ToList();
+                break;
 
-        // Устанавливаем правильный ответ для последующей проверки
-        CorrectAnswer = exercise.CorrectAnswer;
+            case "fillintheblanks":
+                questions = dataForFillIn.OrderBy(x => Guid.NewGuid()).Take(5).ToList();
+                break;
+
+            default:
+                throw new ArgumentException("Invalid question type");
+        }
+
+        userCurrentQuestions[chatId] = questions;
+        await AskNextQuestion(chatId);
     }
-    */
-    private static async Task FillInTheBlankExercise(Message msg)
+
+
+    private static async Task AskNextQuestion(string chatId)
     {
-        Random rand = new Random();
-        int index = rand.Next(dataForFillIn.Count); // Выбираем случайный вопрос из списка
-
-        var exercise = dataForFillIn[index];
-
-        userCorrectAnswers[msg.Chat.Id.ToString()] = exercise.correctAnswer; // Устанавливаем правильный ответ
-
-        var replyKeyboard = new ReplyKeyboardMarkup(exercise.options.Select(option => new KeyboardButton(option)).ToArray())
+        if (userCurrentQuestions.ContainsKey(chatId))
         {
-            ResizeKeyboard = true
-        };
+            var questions = userCurrentQuestions[chatId];
+            var currentIndex = userQuestionIndexes[chatId];
 
-        await Client.SendTextMessageAsync(msg.Chat.Id, exercise.question, replyMarkup: replyKeyboard);
+            if (currentIndex >= questions.Count)
+            {
+                await Client.SendTextMessageAsync(chatId, "You have completed all the questions.");
+                userCurrentQuestions.Remove(chatId);
+                userQuestionIndexes.Remove(chatId);
+                return;
+            }
+
+            var question = questions[currentIndex];
+
+            userCorrectAnswers[chatId] = question.correctAnswer;
+
+            var buttons = question.options.Select(option => new KeyboardButton(option)).ToArray();
+            var rows = new[] { buttons.Take(2).ToArray(), buttons.Skip(2).Take(2).ToArray() };
+
+            var replyKeyboard = new ReplyKeyboardMarkup(rows)
+            {
+                ResizeKeyboard = true
+            };
+
+            string questionText = question.question;
+
+            await Client.SendTextMessageAsync(chatId, questionText, replyMarkup: replyKeyboard);
+        }
     }
-}
