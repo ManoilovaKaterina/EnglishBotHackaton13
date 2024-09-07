@@ -134,11 +134,11 @@ class Program
             {
                 if (msg.Text.Equals(userCorrectAnswers[chatId], StringComparison.OrdinalIgnoreCase))
                 {
-                    await Client.SendTextMessageAsync(msg.Chat.Id, "Correct!", replyMarkup: new ReplyKeyboardRemove());
+                    await Client.SendTextMessageAsync(msg.Chat.Id, "Correct!");
                 }
                 else
                 {
-                    await Client.SendTextMessageAsync(msg.Chat.Id, $"Incorrect. The correct answer is: \n{userCorrectAnswers[chatId]}", replyMarkup: new ReplyKeyboardRemove());
+                    await Client.SendTextMessageAsync(msg.Chat.Id, $"Incorrect. The correct answer is: \n{userCorrectAnswers[chatId]}");
                 }
                 userCorrectAnswers[chatId] = "N";
                 userQuestionIndexes[chatId]++;
@@ -150,7 +150,7 @@ class Program
                 else
                 {
                     userQuestionIndexes[chatId] = 0;
-                    await Client.SendTextMessageAsync(msg.Chat.Id, "You have completed the questions!");
+                    await Client.SendTextMessageAsync(msg.Chat.Id, "You have completed the questions!", replyMarkup: new ReplyKeyboardRemove());
 
                     if (userStreaks.TryGetValue(chatId, out var streakData))
                     {
