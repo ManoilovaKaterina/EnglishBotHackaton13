@@ -1,0 +1,6 @@
+Book|Книга|A set of written or printed pages, usually bound with a protective cover.
+Apple|Яблоко|A round fruit with red or green skin and a whitish interior.
+House|Дім|A building for human habitation.
+Computer|Комп'ютер|An electronic device for storing and processing data.
+Pear|Груша|An edible fruit produced by the pear tree, similar to an apple but elongated towards the stem.
+Evident|Очевидний|Clearly revealed to the mind or the senses or judgment
