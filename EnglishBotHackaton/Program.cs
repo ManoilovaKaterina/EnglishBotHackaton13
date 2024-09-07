@@ -311,11 +311,11 @@ class Program
     {
         if (userStreaks.TryGetValue(chatId, out var streakData))
         {
-            await Client.SendTextMessageAsync(chatId, $"Ваш текущий стрик: {streakData.streak} дней.");
+            await Client.SendTextMessageAsync(chatId, $"Your current streak is: {streakData.streak} day.");
         }
         else
         {
-            await Client.SendTextMessageAsync(chatId, "Вы ещё не начинали серию.");
+            await Client.SendTextMessageAsync(chatId, "You haven't started a session yet.");
         }
     }
 }
