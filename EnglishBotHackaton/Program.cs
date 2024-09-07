@@ -16,6 +16,7 @@ using System.Diagnostics.Eventing.Reader;
 using Microsoft.VisualBasic;
 using Quartz.Impl;
 using Quartz;
+using EnglishBotHackaton;
 
 class Program
 {
@@ -24,13 +25,23 @@ class Program
     private static CancellationTokenSource _cts = new CancellationTokenSource();
     private static string CorrectAnswer = "N"; // Якщо у юзера зараз питання - тут правильна відповідь, якщо ні - N (як None)
 
+    private static List<WordEntry> wordList = new List<WordEntry>
+        {
+            new WordEntry("Book", "Книга", "A set of written or printed pages, usually bound with a protective cover."),
+            new WordEntry("Apple", "Яблоко", "A round fruit with red or green skin and a whitish interior."),
+            new WordEntry("House", "Дім", "A building for human habitation."),
+            new WordEntry("Computer", "Комп'ютер", "An electronic device for storing and processing data."),
+            new WordEntry("Pear", "Груша", "An edible fruit produced by the pear tree, similar to an apple but elongated towards the stem."),
+            new WordEntry("Evident", "Очевидний", "Сlearly revealed to the mind or the senses or judgment"),
+        };
+
     private static Dictionary<string, TimeSpan> userPreferredTimes = new Dictionary<string, TimeSpan>();//сюди з бази даних айдішки та час
 
     static async Task Main(string[] args)
     {
         Env.Load();
         var botToken = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN");
-        Client = new TelegramBotClient(botToken); // .енв тупить, якщо не працює просто прямо встав токен
+        Client = new TelegramBotClient(botToken);
         var me = await Client.GetMeAsync();
 
         Console.WriteLine($"@{me.Username} is running...");
@@ -135,11 +146,11 @@ class Program
         }
         else if (msg.Text == "/translation")
         {
-            await DefinitionQuestion(msg);
+            await TranslationQuestion(msg);
         }
         else if (msg.Text == "/complete")
         {
-            await DefinitionQuestion(msg);
+            //await CompleteSentenceQuestion(msg);
         }
         else if (msg.Text == "/general")
         {
@@ -167,81 +178,99 @@ class Program
 
     private static async Task DefinitionQuestion(Message msg)
     {
-        string randomWordUrl = "https://random-word-api.herokuapp.com/word?number=4"; // якщо буде словник то слова та визначення з нього
-        HttpResponseMessage response = await HttpClient.GetAsync(randomWordUrl);      // але поки хай це буде
-        response.EnsureSuccessStatusCode();
+        //string randomWordUrl = "https://random-word-api.herokuapp.com/word?number=4"; // якщо буде словник то слова та визначення з нього
+        //HttpResponseMessage response = await HttpClient.GetAsync(randomWordUrl);      // але поки хай це буде
+        //response.EnsureSuccessStatusCode();
 
-        string responseBody = await response.Content.ReadAsStringAsync();
-        string[] Words = new string[4];
-        List<string> Definitions = new List<string> { };
+        //string responseBody = await response.Content.ReadAsStringAsync();
+        //string[] Words = new string[4];
+        //List<string> Definitions = new List<string> { };
 
-        using (JsonDocument doc = JsonDocument.Parse(responseBody))
-        {
-            JsonElement root = doc.RootElement;
+        //using (JsonDocument doc = JsonDocument.Parse(responseBody))
+        //{
+        //    JsonElement root = doc.RootElement;
 
-            if (root.ValueKind == JsonValueKind.Array)
-            {
-                Words = root.EnumerateArray().Select(e => e.GetString()).ToArray();
-            }
-            else
-            {
-                await Client.SendTextMessageAsync(msg.Chat.Id, "Failed to get a random word.");
-            }
-        }
+        //    if (root.ValueKind == JsonValueKind.Array)
+        //    {
+        //        Words = root.EnumerateArray().Select(e => e.GetString()).ToArray();
+        //    }
+        //    else
+        //    {
+        //        await Client.SendTextMessageAsync(msg.Chat.Id, "Failed to get a random word.");
+        //    }
+        //}
 
-        foreach (var word in Words)
-        {
-            string definitionUrl = $"https://api.dictionaryapi.dev/api/v2/entries/en/{word}";
-            HttpResponseMessage definitionResponse = await HttpClient.GetAsync(definitionUrl);
+        //foreach (var word in Words)
+        //{
+        //    string definitionUrl = $"https://api.dictionaryapi.dev/api/v2/entries/en/{word}";
+        //    HttpResponseMessage definitionResponse = await HttpClient.GetAsync(definitionUrl);
 
-            if (!definitionResponse.IsSuccessStatusCode)
-            {
-                await Client.SendTextMessageAsync(msg.Chat.Id, "Failed to get word definition.");
-                return;
-            }
+        //    if (!definitionResponse.IsSuccessStatusCode)
+        //    {
+        //        await Client.SendTextMessageAsync(msg.Chat.Id, "Failed to get word definition.");
+        //        return;
+        //    }
 
-            string definitionBody = await definitionResponse.Content.ReadAsStringAsync();
-            try // тут воно не хотіло нормально достати значення з джейсона, тому довга муть
-            {
-                using (JsonDocument doc = JsonDocument.Parse(definitionBody)) 
-                {
-                    JsonElement root = doc.RootElement;
+        //    string definitionBody = await definitionResponse.Content.ReadAsStringAsync();
+        //    try // тут воно не хотіло нормально достати значення з джейсона, тому довга муть
+        //    {
+        //        using (JsonDocument doc = JsonDocument.Parse(definitionBody)) 
+        //        {
+        //            JsonElement root = doc.RootElement;
 
-                    if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0)
-                    {
-                        var firstEntry = root[0];
+        //            if (root.ValueKind == JsonValueKind.Array && root.GetArrayLength() > 0)
+        //            {
+        //                var firstEntry = root[0];
 
-                        if (firstEntry.TryGetProperty("meanings", out JsonElement meanings) && meanings.ValueKind == JsonValueKind.Array && meanings.GetArrayLength() > 0)
-                        {
-                            var firstMeaning = meanings[0];
+        //                if (firstEntry.TryGetProperty("meanings", out JsonElement meanings) && meanings.ValueKind == JsonValueKind.Array && meanings.GetArrayLength() > 0)
+        //                {
+        //                    var firstMeaning = meanings[0];
 
-                            if (firstMeaning.TryGetProperty("definitions", out JsonElement definitions) && definitions.ValueKind == JsonValueKind.Array && definitions.GetArrayLength() > 0)
-                            {
-                                var firstDefinition = definitions[0];
-                                Definitions.Add(firstDefinition.GetProperty("definition").GetString());
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-                await Client.SendTextMessageAsync(msg.Chat.Id, "Failed to parse word definition.");
-                return;
-            }
-        }
+        //                    if (firstMeaning.TryGetProperty("definitions", out JsonElement definitions) && definitions.ValueKind == JsonValueKind.Array && definitions.GetArrayLength() > 0)
+        //                    {
+        //                        var firstDefinition = definitions[0];
+        //                        Definitions.Add(firstDefinition.GetProperty("definition").GetString());
+        //                    }
+        //                }
+        //            }
+        //        }
+        //    }
+        //    catch (Exception e)
+        //    {
+        //        Console.WriteLine(e);
+        //        await Client.SendTextMessageAsync(msg.Chat.Id, "Failed to parse word definition.");
+        //        return;
+        //    }
+        //}
 
         Random rand = new Random();
         int CurrentCorrect = rand.Next(4); // рандомно обирається правильний варіант
 
-        CorrectAnswer = Definitions[CurrentCorrect];
+        var chosenWords = wordList.OrderBy(x => rand.Next()).Take(4).ToList();
+
+        CorrectAnswer = chosenWords[CurrentCorrect].Definition;
 
         var replyKeyboard = new ReplyKeyboardMarkup(new[] {
-            new[] { new KeyboardButton(Definitions[0]), new KeyboardButton(Definitions[1]) },
-            new[] { new KeyboardButton(Definitions[2]), new KeyboardButton(Definitions[3]) }});
+            new[] { new KeyboardButton(chosenWords[0].Definition), new KeyboardButton(chosenWords[1].Definition) },
+            new[] { new KeyboardButton(chosenWords[2].Definition), new KeyboardButton(chosenWords[3].Definition) }});
 
-        await Client.SendTextMessageAsync(msg.Chat.Id, $"Дайте визначення слову '{Words[CurrentCorrect]}':", replyMarkup: replyKeyboard);
+        await Client.SendTextMessageAsync(msg.Chat.Id, $"Дайте визначення слову '{chosenWords[CurrentCorrect].Word}':", replyMarkup: replyKeyboard);
+    }
+
+    private static async Task TranslationQuestion(Message msg)
+    {
+        Random rand = new Random();
+        int CurrentCorrect = rand.Next(4); // рандомно обирається правильний варіант
+
+        var chosenWords = wordList.OrderBy(x => rand.Next()).Take(4).ToList();
+
+        CorrectAnswer = chosenWords[CurrentCorrect].Translation;
+
+        var replyKeyboard = new ReplyKeyboardMarkup(new[] {
+            new[] { new KeyboardButton(chosenWords[0].Translation), new KeyboardButton(chosenWords[1].Translation) },
+            new[] { new KeyboardButton(chosenWords[2].Translation), new KeyboardButton(chosenWords[3].Translation) }});
+
+        await Client.SendTextMessageAsync(msg.Chat.Id, $"Дайте визначення слову '{chosenWords[CurrentCorrect].Word}':", replyMarkup: replyKeyboard);
     }
 }
 
